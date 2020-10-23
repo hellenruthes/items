@@ -1,0 +1,154 @@
+{
+    "name": "Load_twitter_data",
+    "description": "Data Pipeline Application",
+    "artifact": {
+        "name": "cdap-data-pipeline",
+        "version": "6.2.0",
+        "scope": "SYSTEM"
+    },
+    "config": {
+        "resources": {
+            "memoryMB": 2048,
+            "virtualCores": 1
+        },
+        "driverResources": {
+            "memoryMB": 2048,
+            "virtualCores": 1
+        },
+        "connections": [
+            {
+                "from": "GCSFile",
+                "to": "Wrangler"
+            },
+            {
+                "from": "Wrangler",
+                "to": "BigQuery"
+            }
+        ],
+        "comments": [],
+        "postActions": [],
+        "properties": {},
+        "processTimingEnabled": true,
+        "stageLoggingEnabled": true,
+        "stages": [
+            {
+                "name": "GCSFile",
+                "plugin": {
+                    "name": "GCSFile",
+                    "type": "batchsource",
+                    "label": "GCSFile",
+                    "artifact": {
+                        "name": "google-cloud",
+                        "version": "0.15.0",
+                        "scope": "SYSTEM"
+                    },
+                    "properties": {
+                        "project": "boticario-hruthes",
+                        "format": "text",
+                        "skipHeader": "false",
+                        "serviceFilePath": "auto-detect",
+                        "filenameOnly": "false",
+                        "recursive": "false",
+                        "encrypted": "false",
+                        "copyHeader": "false",
+                        "schema": "{\"type\":\"record\",\"name\":\"etlSchemaBody\",\"fields\":[{\"name\":\"body\",\"type\":\"string\"}]}",
+                        "path": "gs://boticario-hruthes-twitter-incoming/",
+                        "referenceName": "boticario-hruthes-twitter-incoming.boticario-hruthes-twitter-incoming"
+                    }
+                },
+                "outputSchema": [
+                    {
+                        "name": "etlSchemaBody",
+                        "schema": "{\"type\":\"record\",\"name\":\"etlSchemaBody\",\"fields\":[{\"name\":\"body\",\"type\":\"string\"}]}"
+                    }
+                ],
+                "type": "batchsource",
+                "label": "GCSFile",
+                "icon": "fa-plug"
+            },
+            {
+                "name": "Wrangler",
+                "plugin": {
+                    "name": "Wrangler",
+                    "type": "transform",
+                    "label": "Wrangler",
+                    "artifact": {
+                        "name": "wrangler-transform",
+                        "version": "4.2.0",
+                        "scope": "SYSTEM"
+                    },
+                    "properties": {
+                        "field": "*",
+                        "precondition": "false",
+                        "threshold": "1",
+                        "workspaceId": "2d749273-5086-488f-90b2-451c821e0bd2",
+                        "directives": "parse-as-csv :body ',' false\ndrop body\ndrop body_1\ndrop body_3\ndrop body_2\nrename body_4 twitter_content\nrename body_5 twitter_created_at",
+                        "schema": "{\"type\":\"record\",\"name\":\"etlSchemaBody\",\"fields\":[{\"name\":\"twitter_content\",\"type\":[\"string\",\"null\"]},{\"name\":\"twitter_created_at\",\"type\":[\"string\",\"null\"]}]}"
+                    }
+                },
+                "outputSchema": [
+                    {
+                        "name": "etlSchemaBody",
+                        "schema": "{\"type\":\"record\",\"name\":\"etlSchemaBody\",\"fields\":[{\"name\":\"twitter_content\",\"type\":[\"string\",\"null\"]},{\"name\":\"twitter_created_at\",\"type\":[\"string\",\"null\"]}]}"
+                    }
+                ],
+                "inputSchema": [
+                    {
+                        "name": "GCSFile",
+                        "schema": "{\"type\":\"record\",\"name\":\"etlSchemaBody\",\"fields\":[{\"name\":\"body\",\"type\":\"string\"}]}"
+                    }
+                ],
+                "type": "transform",
+                "label": "Wrangler",
+                "icon": "icon-DataPreparation"
+            },
+            {
+                "name": "BigQuery",
+                "plugin": {
+                    "name": "BigQueryTable",
+                    "type": "batchsink",
+                    "label": "BigQuery",
+                    "artifact": {
+                        "name": "google-cloud",
+                        "version": "0.15.0",
+                        "scope": "SYSTEM"
+                    },
+                    "properties": {
+                        "project": "auto-detect",
+                        "serviceFilePath": "auto-detect",
+                        "operation": "insert",
+                        "truncateTable": "false",
+                        "allowSchemaRelaxation": "false",
+                        "location": "US",
+                        "createPartitionedTable": "false",
+                        "partitionFilterRequired": "false",
+                        "schema": "{\"type\":\"record\",\"name\":\"etlSchemaBody\",\"fields\":[{\"name\":\"twitter_content\",\"type\":[\"string\",\"null\"]},{\"name\":\"twitter_created_at\",\"type\":[\"string\",\"null\"]}]}",
+                        "referenceName": "from_tw_csv_to_big_query",
+                        "dataset": "TWITTER",
+                        "table": "T_TWITTER",
+                        "bucket": "boticario-hruthes-temp"
+                    }
+                },
+                "outputSchema": [
+                    {
+                        "name": "etlSchemaBody",
+                        "schema": "{\"type\":\"record\",\"name\":\"etlSchemaBody\",\"fields\":[{\"name\":\"twitter_content\",\"type\":[\"string\",\"null\"]},{\"name\":\"twitter_created_at\",\"type\":[\"string\",\"null\"]}]}"
+                    }
+                ],
+                "inputSchema": [
+                    {
+                        "name": "Wrangler",
+                        "schema": "{\"type\":\"record\",\"name\":\"etlSchemaBody\",\"fields\":[{\"name\":\"twitter_content\",\"type\":[\"string\",\"null\"]},{\"name\":\"twitter_created_at\",\"type\":[\"string\",\"null\"]}]}"
+                    }
+                ],
+                "type": "batchsink",
+                "label": "BigQuery",
+                "icon": "fa-plug"
+            }
+        ],
+        "schedule": "0 * * * *",
+        "engine": "spark",
+        "numOfRecordsPreview": 100,
+        "maxConcurrentRuns": 1
+    }
+}
